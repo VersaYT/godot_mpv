@@ -1,0 +1,50 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Project",
+            "type": "lldb",
+            "request": "launch",
+            // Change to godot.linuxbsd.editor.dev.x86_64.llvm for llvm-based builds.
+            "program": "${workspaceFolder}/bin/godot.linuxbsd.editor.dev.x86_64",
+            // Change the arguments below for the project you want to test with.
+            // To run the project instead of editing it, remove the "--editor" argument.
+            "args": [ "--editor", "--path", "./" ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "preLaunchTask": "build"
+          },
+          {
+            "name": "Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            // Change to godot.linuxbsd.editor.dev.x86_64.llvm for llvm-based builds.
+            "program": "${workspaceFolder}/godot/bin/godot.linuxbsd.editor.x86_64",
+            // Change the arguments below for the project you want to test with.
+            // To run the project instead of editing it, remove the "--editor" argument.
+            "args": [ "--editor", "--path", "./demo" ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "setupCommands":
+            [
+              {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+              },
+              {
+                  "description": "Load custom pretty-printers for Godot types.",
+                  "text": "source ${workspaceRoot}/godot/misc/utility/godot_gdb_pretty_print.py"
+              }
+            ],
+            "preLaunchTask": "build godot editor debug"
+          }
+    ]
+}
