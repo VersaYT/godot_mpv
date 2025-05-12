@@ -54,11 +54,11 @@ void MPVPlayer::on_mpv_render_update(void* ctx) {
     }
 }
 
-uint MPVPlayer::get_debug_level() {
+unsigned int MPVPlayer::get_debug_level() {
     return debug_level;
 }
 
-void MPVPlayer::set_debug_level(uint level) {
+void MPVPlayer::set_debug_level(unsigned int level) {
     debug_level = level;
 }
 

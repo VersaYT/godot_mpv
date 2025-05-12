@@ -69,7 +69,7 @@ protected:
     virtual void _notification(int p_what);
     
 public:
-    uint debug_level;
+    unsigned int debug_level;
 
     MPVPlayer();
     ~MPVPlayer();
@@ -106,8 +106,8 @@ public:
     int get_width() const { return width; }
     int get_height() const { return height; }
 
-    uint get_debug_level();
-    void set_debug_level(uint);
+    unsigned int get_debug_level();
+    void set_debug_level(unsigned int);
 
     // Static methods for enum godot compatibility
     static int get_debug_none() {return DEBUG_NONE;}
