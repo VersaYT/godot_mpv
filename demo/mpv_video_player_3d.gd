@@ -58,7 +58,7 @@ func _ready():
 	
 	# Load and play the video
 	print("Loading video file...")
-	mpv_player.load_file("/home/versaroumane/Documents/dev/godot/godot_mpv/assets/video/AV1_Big_Buck_Bunny_720_10s.mp4")
+	mpv_player.load_file("https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_640x360.m4v")
 	mpv_player.play() 
 
 # This function is called whenever a new video frame is available

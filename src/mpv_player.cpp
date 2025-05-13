@@ -76,6 +76,9 @@ MPVPlayer::MPVPlayer() :
     frame_available(false),
     texture_needs_update(false),
     has_new_frame(false),
+    is_streaming(false),
+    frame_count(0),
+    stream_frame_threshold(30), // Allow up to 30 black frames for streaming
     egl_display(EGL_NO_DISPLAY),
     egl_surface(EGL_NO_SURFACE),
     egl_context(EGL_NO_CONTEXT) {
@@ -208,15 +211,33 @@ bool MPVPlayer::initialize() {
         return false;
     }
     
-    // Set MPV options
+    // Set basic MPV options
     mpv_set_option_string(mpv, "vo", "libmpv");
     mpv_set_option_string(mpv, "hwdec", "auto");
-    mpv_set_option_string(mpv, "video-sync", "display");
+    // mpv_set_option_string(mpv, "video-sync", "display");
+    
+    // Set network-related options for better HTTP streaming support
+    mpv_set_option_string(mpv, "network-timeout", "15"); // 15 seconds timeout
+    mpv_set_option_string(mpv, "user-agent", "Mozilla/5.0 Godot/MPV Player"); // Set a user agent
+    
+    // Enable verbose logging in debug mode
+    if (debug_level == DEBUG_FULL) {
+        mpv_request_log_messages(mpv, "v"); // Verbose logging
+        mpv_set_option_string(mpv, "msg-level", "all=v");
+    }
     
     // Initialize MPV
-    if (mpv_initialize(mpv) < 0) {
-        UtilityFunctions::print("Failed to initialize MPV");
+    int init_result = mpv_initialize(mpv);
+    if (init_result < 0) {
+        UtilityFunctions::print("Failed to initialize MPV: ", mpv_error_string(init_result));
         return false;
+    }
+    
+    // Set up property observation for debugging
+    if (debug_level == DEBUG_FULL) {
+        // Observe network-related properties
+        mpv_observe_property(mpv, 0, "demuxer-cache-state", MPV_FORMAT_NODE);
+        mpv_observe_property(mpv, 0, "paused-for-cache", MPV_FORMAT_FLAG);
     }
     
     // Initialize OpenGL rendering
@@ -421,10 +442,38 @@ void MPVPlayer::_process(double delta) {
                 // Verify we have actual data
                 bool has_content = false;
                 uint8_t* data = (uint8_t*)pixel_data.ptrw();
-                for (int i = 0; i < width * height * 4; i += 4) {
-                    if (data[i] != 0 || data[i+1] != 0 || data[i+2] != 0) {
-                        has_content = true;
-                        break;
+                
+                // For HTTP streams, always process frames even if they're black
+                if (is_streaming) {
+                    // For streaming, we'll always accept frames and update the texture
+                    has_content = true;
+                    frame_count++;
+                    
+                    if (frame_count % 10 == 0 || frame_count < 5) { // Reduce log spam
+                        if(debug_level == DEBUG_FULL)
+                        UtilityFunctions::print("Streaming mode: processing frame #", frame_count);
+                    }
+                    
+                    // Check if this frame has actual content (for debugging only)
+                    bool has_visible_content = false;
+                    for (int i = 0; i < width * height * 4; i += 4) {
+                        if (data[i] != 0 || data[i+1] != 0 || data[i+2] != 0) {
+                            has_visible_content = true;
+                            break;
+                        }
+                    }
+                    
+                    if (has_visible_content && !had_visible_content) {
+                        had_visible_content = true;
+                        UtilityFunctions::print("First non-black frame detected at frame #", frame_count);
+                    }
+                } else {
+                    // For local files, check for actual content
+                    for (int i = 0; i < width * height * 4; i += 4) {
+                        if (data[i] != 0 || data[i+1] != 0 || data[i+2] != 0) {
+                            has_content = true;
+                            break;
+                        }
                     }
                 }
                 
@@ -433,10 +482,10 @@ void MPVPlayer::_process(double delta) {
                     has_new_frame.store(true);
                     
                     if(debug_level == DEBUG_FULL)
-                    UtilityFunctions::print("Frame data captured with content");
+                        UtilityFunctions::print("Frame data captured");
                 } else {
                     if(debug_level == DEBUG_SIMPLE || debug_level == DEBUG_FULL)
-                    UtilityFunctions::print("WARNING: Frame data is empty (all black)");
+                        UtilityFunctions::print("WARNING: Frame data is empty (all black)");
                 }
             }
             
@@ -457,7 +506,120 @@ void MPVPlayer::_process(double delta) {
     if (mpv) {
         mpv_event* event = mpv_wait_event(mpv, 0);
         while (event->event_id != MPV_EVENT_NONE) {
+            // Process MPV events
+            switch (event->event_id) {
+                case MPV_EVENT_FILE_LOADED:
+                    if(debug_level == DEBUG_SIMPLE || debug_level == DEBUG_FULL)
+                        UtilityFunctions::print("File loaded successfully");
+                    
+                    // Reset frame counter and content flag when a new file is loaded
+                    frame_count = 0;
+                    had_visible_content = false;
+                    break;
+                    
+                case MPV_EVENT_PLAYBACK_RESTART:
+                    if(debug_level == DEBUG_SIMPLE || debug_level == DEBUG_FULL)
+                        UtilityFunctions::print("Playback restarted");
+                    break;
+                    
+                case MPV_EVENT_END_FILE:
+                    {
+                        mpv_event_end_file* end_file = static_cast<mpv_event_end_file*>(event->data);
+                        
+                        // Always log errors
+                        if (end_file->reason == MPV_END_FILE_REASON_ERROR) {
+                            UtilityFunctions::print("ERROR: Playback failed with error code: ", end_file->error);
+                            
+                            // Get the error string
+                            const char* err_str = mpv_error_string(end_file->error);
+                            if (err_str) {
+                                UtilityFunctions::print("MPV Error: ", err_str);
+                            }
+                            
+                            // For streaming, try to provide more specific error information
+                            if (is_streaming) {
+                                UtilityFunctions::print("HTTP stream playback failed. Possible causes:");
+                                UtilityFunctions::print("- Network connectivity issues");
+                                UtilityFunctions::print("- Unsupported codec or format");
+                                UtilityFunctions::print("- Invalid URL or stream");
+                                
+                                // Try to get more diagnostic information
+                                char* media_title = nullptr;
+                                if (mpv_get_property(mpv, "media-title", MPV_FORMAT_STRING, &media_title) >= 0 && media_title) {
+                                    UtilityFunctions::print("Media title: ", media_title);
+                                    mpv_free(media_title);
+                                }
+                            }
+                        } else if (debug_level == DEBUG_SIMPLE || debug_level == DEBUG_FULL) {
+                            // Log normal end-of-file events only if debug is enabled
+                            UtilityFunctions::print("Playback ended with reason: ", end_file->reason);
+                        }
+                    }
+                    break;
+                    
+                case MPV_EVENT_LOG_MESSAGE:
+                    if(debug_level == DEBUG_FULL) {
+                        mpv_event_log_message* msg = static_cast<mpv_event_log_message*>(event->data);
+                        UtilityFunctions::print("MPV Log [", msg->prefix, "]: ", msg->text);
+                    }
+                    break;
+                    
+                case MPV_EVENT_PROPERTY_CHANGE:
+                    if(is_streaming && debug_level == DEBUG_FULL) {
+                        UtilityFunctions::print("Property changed");
+                    }
+                    break;
+            }
+            
             event = mpv_wait_event(mpv, 0);
+        }
+        
+        // For streaming, we need to be more aggressive about requesting frame updates
+        if (is_streaming) {
+            // For HTTP streams, check playback status
+            int64_t time_pos = 0;
+            int paused = 0;
+            
+            // Get current playback position
+            if (mpv_get_property(mpv, "time-pos", MPV_FORMAT_INT64, &time_pos) >= 0) {
+                if (debug_level == DEBUG_FULL && frame_count % 60 == 0) {
+                    UtilityFunctions::print("Stream position: ", time_pos, " seconds");
+                }
+            }
+            
+            // Check if playback is paused
+            if (mpv_get_property(mpv, "pause", MPV_FORMAT_FLAG, &paused) >= 0) {
+                if (paused) {
+                    // If paused, try to resume playback
+                    if (debug_level == DEBUG_SIMPLE || debug_level == DEBUG_FULL) {
+                        UtilityFunctions::print("Stream is paused, attempting to resume");
+                    }
+                    mpv_set_property_string(mpv, "pause", "no");
+                }
+            }
+            
+            // Force a frame update every few frames to keep the stream going
+            if (frame_count % 10 == 0) {
+                texture_needs_update.store(true);
+                
+                if(debug_level == DEBUG_FULL) {
+                    UtilityFunctions::print("Requesting frame update for streaming, frame #", frame_count);
+                }
+                
+                // If we haven't seen any content after a significant number of frames, try to restart
+                if (!had_visible_content && frame_count > 100) {
+                    if(debug_level == DEBUG_SIMPLE || debug_level == DEBUG_FULL) {
+                        UtilityFunctions::print("No visible content after ", frame_count, " frames, trying to restart playback");
+                    }
+                    
+                    // Send a seek command to restart playback
+                    const char* cmd[] = {"seek", "0", "absolute", nullptr};
+                    mpv_command_async(mpv, 0, cmd);
+                    
+                    // Reset frame counter
+                    frame_count = 0;
+                }
+            }
         }
     }
 }
@@ -471,12 +633,61 @@ void MPVPlayer::load_file(const String& path) {
         return;
     }
     
-    // Convert Godot String to C string
-    const char* c_path = path.utf8().get_data();
+    // Check if this is a streaming URL
+    is_streaming = path.begins_with("http://") || path.begins_with("https://");
     
-    // Load the file
-    const char* cmd[] = {"loadfile", c_path, nullptr};
-    mpv_command_async(mpv, 0, cmd);
+    // Reset frame counter and content flag when loading a new file/stream
+    frame_count = 0;
+    had_visible_content = false;
+    
+    if (is_streaming) {
+        UtilityFunctions::print("Detected HTTP stream, enabling streaming mode");
+        
+        // Set streaming-specific options for MPV
+        // These match closer to command-line mpv defaults
+        mpv_set_option_string(mpv, "network-timeout", "60"); // 60 seconds timeout (default in mpv)
+        mpv_set_option_string(mpv, "demuxer-readahead-secs", "20"); // Read ahead 20 seconds
+        mpv_set_option_string(mpv, "cache", "yes"); // Enable cache
+        mpv_set_option_string(mpv, "cache-secs", "30"); // Cache 30 seconds (more generous)
+        mpv_set_option_string(mpv, "force-seekable", "yes"); // Try to make stream seekable
+        
+        // Set these to match command-line behavior
+        mpv_set_option_string(mpv, "audio-file-auto", "no"); // Don't load external audio
+        mpv_set_option_string(mpv, "sub-auto", "no"); // Don't load subtitles
+        
+        UtilityFunctions::print("Applied streaming-specific MPV options");
+    } else {
+        // Local file options
+        mpv_set_option_string(mpv, "cache", "auto");
+    }
+    
+    // Convert Godot String to C string - we need to keep the CharString alive
+    // until after the command is executed to prevent the pointer from becoming invalid
+    CharString cs = path.utf8();
+    const char* c_path = cs.get_data();
+    
+    if (c_path == nullptr || c_path[0] == '\0') {
+        UtilityFunctions::print("ERROR: Invalid empty path");
+        return;
+    }
+    
+    UtilityFunctions::print("Loading path: '", c_path, "'");
+    
+    // For HTTP streams, use synchronous command to match command-line behavior
+    // This ensures the command completes before continuing
+    if (is_streaming) {
+        const char* cmd[] = {"loadfile", c_path, nullptr};
+        int result = mpv_command(mpv, cmd);
+        if (result < 0) {
+            UtilityFunctions::print("Error loading stream: ", mpv_error_string(result));
+        } else {
+            UtilityFunctions::print("Stream loaded successfully");
+        }
+    } else {
+        // For local files, use async command as before
+        const char* cmd[] = {"loadfile", c_path, nullptr};
+        mpv_command_async(mpv, 0, cmd);
+    }
 }
 
 void MPVPlayer::play() {

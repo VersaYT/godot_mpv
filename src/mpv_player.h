@@ -64,6 +64,12 @@ private:
     int width = 1280;
     int height = 720;
     
+    // Streaming support
+    bool is_streaming = false;
+    int frame_count = 0;
+    int stream_frame_threshold = 30; // Allow up to 30 black frames for streaming
+    bool had_visible_content = false; // Track if we've seen non-black content
+    
 protected:
     static void _bind_methods();
     virtual void _notification(int p_what);
