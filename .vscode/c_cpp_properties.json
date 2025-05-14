@@ -4,8 +4,9 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/godot-cpp/include",
-                "${workspaceFolder}/godot-cpp/gen/include"
+                "${workspaceFolder}/engine/**",
+                "${workspaceFolder}/engine/godot-cpp/include",
+                "${workspaceFolder}/engine/godot-cpp/gen/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

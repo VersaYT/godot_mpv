@@ -9,7 +9,7 @@
             "type": "lldb",
             "request": "launch",
             // Change to godot.linuxbsd.editor.dev.x86_64.llvm for llvm-based builds.
-            "program": "${workspaceFolder}/bin/godot.linuxbsd.editor.dev.x86_64",
+            "program": "${workspaceFolder}/engine/godot/bin/godot.linuxbsd.editor.dev.x86_64",
             // Change the arguments below for the project you want to test with.
             // To run the project instead of editing it, remove the "--editor" argument.
             "args": [ "--editor", "--path", "./" ],
@@ -24,7 +24,7 @@
             "type": "cppdbg",
             "request": "launch",
             // Change to godot.linuxbsd.editor.dev.x86_64.llvm for llvm-based builds.
-            "program": "${workspaceFolder}/godot/bin/godot.linuxbsd.editor.x86_64",
+            "program": "${workspaceFolder}/engine/godot/bin/godot.linuxbsd.editor.x86_64",
             // Change the arguments below for the project you want to test with.
             // To run the project instead of editing it, remove the "--editor" argument.
             "args": [ "--editor", "--path", "./demo" ],
