@@ -8,7 +8,7 @@
 ![Logo of mpv](https://img.shields.io/badge/MPV-691F69?logo=mpv&logoColor=white)
 ![Logo of linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)
 
-This GDextension implements the open-source MPV video player in Godot Engine 4.4. It relies on Godot's compatibility rendering layer to share the OpenGL context between the two.
+This GDextension implements the open-source MPV video player in Godot Engine 4.4. It's capable of playing local and http video stream to your MeshInstance2D or MeshInstance3D plane surfaces. It relies on Godot's compatibility rendering layer wich uses OpenGL.
 
 ---
 [Usage](#usage)
@@ -45,22 +45,24 @@ func _ready():
 
 ## Installation
 
-> Because of differences in C++ toolchains, this GDextension is only compatible with Godot on Linux at the moment, binary for windows will be soon available.
-
-Everything you need to run this extension is located in <strong>demo/bin</strong>.
-
-You can simply copy and paste the bin folder to your Godot project root directory, or just the files if folder already exist.
+Download and extract the GDextension files from the release page into your project ```bin``` directory.
 
 ## Build from source
 
+
+## Linux
 <strong>Requirements</strong>
-- MPV installed on the system <em> (install step for [mpv-build](https://github.com/mpv-player/mpv-build) listed in the build steps)
+- MPV installed on the system <em> (install step for [mpv-build](https://github.com/mpv-player/mpv-build) listed in the build steps)</em>
 - EGL and OpenGL ES2 <em>(usually comes with GPU drivers, if not present install with the command linked bellow this text)</em>
 ```bash
 sudo apt install libegl1-mesa-dev libgles2-mesa-dev
 ```
+- CMake for project compilation <em>([CMake download page](https://cmake.org/download/))</em>
 
 ### <em>build steps</em>
+Install CMake (link above)
+
+
 Clone the project
 ```bash
 git clone git@github.com:VersaYT/godot_mpv.git
@@ -80,4 +82,70 @@ The ```-j4``` asks it to use 4 parallel processes.
 Install mpv
 ```bash
 sudo ./install
+```
+cd at the root directory of the project
+Configure CMake for the project
+```bash
+cmake . -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug
+```
+Compile the project (you can of course allow more threads when compiling "-j8")
+```bash
+cmake --build . -- -j4
+```
+---
+## Windows
+<strong>Requirements</strong>
+- GCC compiler for windows (can be downloaded [here](https://winlibs.com))
+- A compiled version of libmpv <em> (you can find one here [sourceforge](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/))</em>
+- ANGLE (for EGL and GLES2 headers) <em>(will be installed in the project when you use ```CMake .``` command)</em>
+- vcpkg (to retrieve ANGLE library)
+- GLAD (to load OpenGL and use EGL/GLES2 headers, use the generator [here](https://gen.glad.sh/))
+> GLAD configuration: 
+> EGL 1.5 
+> GLES2 3.2
+> ✅ Loader
+- CMake for project compilation <em>([CMake download page](https://cmake.org/download/))</em>
+
+### <em>build steps</em>
+GCC compiler setup (if you don't have it)
+- Download and extract the archive found in the website linked above (any version > GCC 12)
+- Type "Env" in windows search and click on "edit system environment variables"
+- Click on "environment variables"
+- Look in "system variables" for your "Path" variable
+- Add a new line to this variable
+- Copy and paste the path to the previously extracted gcc compiler (we want to target the bin/ folder) for example ```C:\mingw64\bin```
+
+Install CMake (link above)
+
+Clone the project
+```powershell
+git clone git@github.com:VersaYT/godot_mpv.git
+```
+Pull vcpkg submodule
+```powershell
+cd godot_mpv
+git submodule update --init
+```
+cd into dependencies folder
+```powershell
+cd dependencies
+```
+Download libmpv and GLAD from the links above
+- Create an ```mpv-dev``` folder and extract the content of downloaded mpv into it
+- Create a ```glad``` folder and extract content of downloaded GLAD into it
+
+
+From powershell, make sure CMake and GCC are working
+```powershell
+cmake --version
+gcc --version
+```
+cd at the root directory of the project
+Configure CMake for the project
+```powershell
+cmake . -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug
+```
+Compile the project (you can of course allow more threads when compiling "-j8")
+```powershell
+mingw32-make -j4
 ```

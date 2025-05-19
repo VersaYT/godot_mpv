@@ -14,7 +14,7 @@ size = Vector2(4.78, 6.495)
 script = ExtResource("1_ig7tw")
 
 [node name="Screen" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.0137004, -0.999906, 0, 0.999906, 0.0137004, 0, 1.44676, -1.67255)
+transform = Transform3D(0.999749, 0.0224233, 0.000307232, -4.39818e-10, 0.0137004, -0.999906, -0.0224255, 0.999655, 0.013697, -0.0628107, 1.44676, -1.77621)
 mesh = SubResource("PlaneMesh_0xm2m")
 
 [node name="Camera3D" type="Camera3D" parent="."]

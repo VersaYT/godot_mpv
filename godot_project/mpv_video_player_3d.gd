@@ -57,7 +57,7 @@ func _ready():
 	
 	# Load and play the video
 	print("Loading video file...")
-	mpv_player.load_file("https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_640x360.m4v")
+	mpv_player.load_file("https://video.blender.org/videos/watch/04da454b-9893-4184-98f3-248d00625efe")
 	mpv_player.play() 
 
 # This function is called whenever a new video frame is available
