@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.15)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake"
     CACHE STRING "Vcpkg toolchain file")
 
 set(VCPKG_MANIFEST_MODE ON)
+endif()
 
 project(godot_mpv)
 
@@ -11,7 +13,9 @@ project(godot_mpv)
 set(GODOT_CPP_PATH "engine/godot-cpp")
 set(PROJECT_NAME godot_mpv)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 find_package(unofficial-angle REQUIRED CONFIG)
+endif()
 
 # Detect platform
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
@@ -43,42 +47,60 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
     native/src/godot_mpv/*.h
 )
 
-# Output
-add_library(glad_gles2 STATIC
-    "${CMAKE_SOURCE_DIR}/dependencies/glad/src/gles2.c"
-)
+# Specific libs for EGL and GLES on windows
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 
-target_include_directories(glad_gles2 PUBLIC
-    "${CMAKE_SOURCE_DIR}/dependencies/glad/include"
-)
-
-add_library(glad_egl STATIC
-    "${CMAKE_SOURCE_DIR}/dependencies/glad/src/egl.c"
-)
-
-target_include_directories(glad_egl PUBLIC
-    "${CMAKE_SOURCE_DIR}/dependencies/glad/include"
-)
-
-add_library(${PROJECT_NAME} SHARED ${SOURCES})
-target_link_libraries(${PROJECT_NAME} PRIVATE
-    godot-cpp
-    "${CMAKE_SOURCE_DIR}/dependencies/mpv-dev/libmpv.dll.a"
-    unofficial::angle::libGLESv2
-    unofficial::angle::libEGL
-    glad_gles2
-    glad_egl
+    add_library(glad_gles2 STATIC
+        "${CMAKE_SOURCE_DIR}/dependencies/glad/src/gles2.c"
     )
 
-# Compiler settings
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
-target_include_directories(${PROJECT_NAME} PRIVATE 
-    ${CMAKE_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/dependencies/glad
-    ${CMAKE_SOURCE_DIR}/dependencies/mpv-dev/include
-    ${GODOT_CPP_PATH}/include
-    src
-)
+    target_include_directories(glad_gles2 PUBLIC
+        "${CMAKE_SOURCE_DIR}/dependencies/glad/include"
+    )
+
+    add_library(glad_egl STATIC
+        "${CMAKE_SOURCE_DIR}/dependencies/glad/src/egl.c"
+    )
+
+    target_include_directories(glad_egl PUBLIC
+        "${CMAKE_SOURCE_DIR}/dependencies/glad/include"
+    )
+
+    add_library(${PROJECT_NAME} SHARED ${SOURCES})
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        godot-cpp
+        "${CMAKE_SOURCE_DIR}/dependencies/mpv-dev/libmpv.dll.a"
+        unofficial::angle::libGLESv2
+        unofficial::angle::libEGL
+        glad_gles2
+        glad_egl
+        )
+
+    # Compiler settings
+    target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
+    target_include_directories(${PROJECT_NAME} PRIVATE 
+        ${CMAKE_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/dependencies/glad
+        ${CMAKE_SOURCE_DIR}/dependencies/mpv-dev/include
+        ${GODOT_CPP_PATH}/include
+        src
+    )
+else()
+    add_library(${PROJECT_NAME} SHARED ${SOURCES})
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        godot-cpp
+        )
+
+    # Compiler settings
+    target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
+    target_include_directories(${PROJECT_NAME} PRIVATE 
+        ${CMAKE_SOURCE_DIR}
+        ${GODOT_CPP_PATH}/include
+        src
+    )
+endif()
+
+
 
 # Determine architecture
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)

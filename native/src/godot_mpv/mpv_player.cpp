@@ -289,8 +289,8 @@ bool MPVPlayer::initialize_gl() {
     if(debug_level == DEBUG_SIMPLE || debug_level == DEBUG_FULL)
     UtilityFunctions::print("Initializing OpenGL for MPV rendering");
     
-    // Instead of creating a new OpenGL context, we'll use Godot's existing one
-    // and create only the resources we need (FBO and texture)
+    // init and load openGL on windows
+    #ifdef _WIN32
     EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (display == EGL_NO_DISPLAY) {
         UtilityFunctions::print("failed to init egl display");
@@ -336,6 +336,8 @@ bool MPVPlayer::initialize_gl() {
     if (!gladLoadGLES2((GLADloadfunc)load_func)) {
         UtilityFunctions::print("eglGetProcName failed");
     }
+
+    #endif
 
     // Create FBO for rendering
     glGenFramebuffers(1, &fbo);
