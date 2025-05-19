@@ -16,6 +16,10 @@ using namespace godot;
 // Static member for callback context
 static MPVPlayer* g_instance = nullptr;
 
+void* load_func(const char* name) {
+    return (void*)eglGetProcAddress(name);
+}
+
 void MPVPlayer::_bind_methods() {
     // Register methods
     ClassDB::bind_method(D_METHOD("initialize"), &MPVPlayer::initialize);
@@ -213,7 +217,7 @@ bool MPVPlayer::initialize() {
     
     // Set basic MPV options
     mpv_set_option_string(mpv, "vo", "libmpv");
-    mpv_set_option_string(mpv, "hwdec", "auto");
+    mpv_set_option_string(mpv, "hwdec", "sw");
     // mpv_set_option_string(mpv, "video-sync", "display");
     
     // Set network-related options for better HTTP streaming support
@@ -287,7 +291,52 @@ bool MPVPlayer::initialize_gl() {
     
     // Instead of creating a new OpenGL context, we'll use Godot's existing one
     // and create only the resources we need (FBO and texture)
+    EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    if (display == EGL_NO_DISPLAY) {
+        UtilityFunctions::print("failed to init egl display");
+    }
+
+    if (!eglInitialize(display, nullptr, nullptr)) {
+        UtilityFunctions::print("failed to init egl");
+    }
+
+    const EGLint config_attribs[] = {
+    EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+    EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+    EGL_RED_SIZE, 8,
+    EGL_GREEN_SIZE, 8,
+    EGL_BLUE_SIZE, 8,
+    EGL_ALPHA_SIZE, 8,
+    EGL_NONE
+    };
+
+    EGLConfig config;
+    EGLint num_configs;
+    if (!eglChooseConfig(display, config_attribs, &config, 1, &num_configs)) {
+        UtilityFunctions::print("failed to apply egl config");
+    }
     
+    const EGLint pbuffer_attribs[] = {
+    EGL_WIDTH, 1,
+    EGL_HEIGHT, 1,
+    EGL_NONE
+    };
+    EGLSurface surface = eglCreatePbufferSurface(display, config, pbuffer_attribs);
+
+    const EGLint context_attribs[] = {
+    EGL_CONTEXT_CLIENT_VERSION, 2,
+    EGL_NONE
+    };
+    EGLContext context = eglCreateContext(display, config, EGL_NO_CONTEXT, context_attribs);
+
+    if (!eglMakeCurrent(display, surface, surface, context)) {
+        UtilityFunctions::print("could not make egl context current");
+    }
+    
+    if (!gladLoadGLES2((GLADloadfunc)load_func)) {
+        UtilityFunctions::print("eglGetProcName failed");
+    }
+
     // Create FBO for rendering
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);

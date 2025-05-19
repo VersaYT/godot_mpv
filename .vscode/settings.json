@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "atomic": "cpp",
+        "thread": "cpp",
+        "gles2.h": "c"
+    }
+}
