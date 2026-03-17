@@ -23,7 +23,7 @@ void* load_func(const char* name) {
 void MPVPlayer::_bind_methods() {
     // Register methods
     ClassDB::bind_method(D_METHOD("initialize"), &MPVPlayer::initialize);
-    ClassDB::bind_method(D_METHOD("load_file", "path", "headers"), &MPVPlayer::load_file);
+    ClassDB::bind_method(D_METHOD("load_file", "path", "headers", "yt_dlp_path"), &MPVPlayer::load_file);
     ClassDB::bind_method(D_METHOD("play"), &MPVPlayer::play);
     ClassDB::bind_method(D_METHOD("set_volume", "value"), &MPVPlayer::set_volume);
     ClassDB::bind_method(D_METHOD("set_audio_track", "id"), &MPVPlayer::set_audio_track);
@@ -50,13 +50,22 @@ void MPVPlayer::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_width"), &MPVPlayer::get_width);
     ClassDB::bind_method(D_METHOD("get_height"), &MPVPlayer::get_height);
     ClassDB::bind_method(D_METHOD("get_content_aspect_ratio"), &MPVPlayer::get_content_aspect_ratio);
+    ClassDB::bind_method(D_METHOD("get_seek_pos"), &MPVPlayer::get_seek_pos);
 
     // Setters
     ClassDB::bind_method(D_METHOD("set_debug_level"), &MPVPlayer::set_debug_level);
+    ClassDB::bind_method(D_METHOD("set_seek_pos", "seek_pos"), &MPVPlayer::set_seek_pos);
     
     // Register signals
     ADD_SIGNAL(MethodInfo("texture_updated", PropertyInfo(Variant::OBJECT, "texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D")));
     ADD_SIGNAL(MethodInfo("time_changed", PropertyInfo(Variant::FLOAT, "time_pos")));
+
+
+    ADD_PROPERTY(
+        PropertyInfo(godot::Variant::STRING, "seek_pos"),
+        "set_seek_pos",
+        "get_seek_pos"
+    );
 }
 
 // Static callback for MPV render updates
@@ -93,6 +102,7 @@ MPVPlayer::MPVPlayer() :
     has_new_frame(false),
     is_streaming(false),
     frame_count(0),
+    seek_pos(""),
     stream_frame_threshold(30), // Allow up to 30 black frames for streaming
     egl_display(EGL_NO_DISPLAY),
     egl_surface(EGL_NO_SURFACE),
@@ -526,12 +536,15 @@ void MPVPlayer::_process(double delta) {
             // Process MPV events
             switch (event->event_id) {
                 case MPV_EVENT_FILE_LOADED:
-                    if(debug_level == DEBUG_SIMPLE || debug_level == DEBUG_FULL)
+                    if(debug_level == DEBUG_SIMPLE || debug_level == DEBUG_FULL) {
                         UtilityFunctions::print("File loaded successfully");
-                    
+                    }
                     // Reset frame counter and content flag when a new file is loaded
                     frame_count = 0;
                     had_visible_content = false;
+                    if(seek_pos.is_empty() == false) {
+                        seek_content_pos(seek_pos);
+                    }
                     break;
                     
                 case MPV_EVENT_PLAYBACK_RESTART:
@@ -769,6 +782,7 @@ void MPVPlayer::seek_content_pos(String pos) {
         ERR_PRINT("MPV not initialized");
         return;
     }
+    UtilityFunctions::print("Seeking content pos at: " + pos);
     const char* seek_cmd[] = {"seek", pos.utf8().get_data(), "absolute", nullptr};
     mpv_command(mpv, seek_cmd);
 }

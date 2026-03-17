@@ -21,6 +21,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <optional>
 
 // EGL includes
 #ifdef _WIN32
@@ -71,6 +72,8 @@ private:
     PackedByteArray pending_frame_data;
     int width;
     int height;
+
+    String seek_pos;
     
     // Streaming support
     bool is_streaming = false;
@@ -96,6 +99,9 @@ public:
     bool initialize();
     
     // Load and play a video file
+    String get_seek_pos() {return seek_pos;}
+    void set_seek_pos(String pos) {seek_pos = pos;}
+
     void load_file(const String& path, String headers, String yt_dlp_path);
     void set_resolution(int new_width, int new_height);
     double get_content_aspect_ratio();
